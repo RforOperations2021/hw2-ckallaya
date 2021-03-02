@@ -1,0 +1,413 @@
+---
+title: "Thailand's External Stability"
+output: 
+ flexdashboard::flex_dashboard:
+   orientation: columns
+runtime: shiny
+---
+
+```{r context="setup", include=FALSE}
+library(shiny)
+library(ggplot2)
+library(dplyr)
+library(flexdashboard)
+library(tools)
+library(plotly)
+library(scales)
+library(reshape)
+library(tidyverse)
+
+```
+
+```{r context="setup", include=FALSE}
+# load Thailand's external stability indicators data
+
+external <- read.csv("./external_cleaned.csv")
+external <- external %>%
+  mutate(Period = as.factor(Period))
+
+```
+
+Inputs {.sidebar}
+=======================================================================
+
+
+### Bank of Thailand
+Last Updated : 30 Dec 2020
+
+Unit: Millions of US Dollars
+
+```{r context="render"}
+selectInput(inputId = "dashSelect1", 
+                  label = "Indicator 1:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("Ext_debt"))
+
+selectInput(inputId = "dashSelect2", 
+                  label = "Indicator 2:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("DSP"))
+
+selectInput(inputId = "dashSelect3", 
+                  label = "Indicator 3:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("Export_goods_services"))
+
+selectInput(inputId = "dashSelect4", 
+                  label = "Indicator 4:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("DI_Intercompany_lending"))
+
+selectInput(inputId = "ratioSelect1", 
+                  label = "Ratio Indicator 1:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("Debt_GDP"))
+
+selectInput(inputId = "ratioSelect2", 
+                  label = "Ratio Indicator 2:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("Int_reserves_ST_debt"))
+
+selectInput(inputId = "ratioSelect3", 
+                  label = "Ratio Indicator 3:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = FALSE,
+                  selected = c("DSR"))
+
+selectInput(inputId = "indicatorSelect", 
+                  label = "Indicator for Trends & Composition:",
+                  choices = names(external[ , -which(names(external) %in% c("Year","Quarter","Period"))]),
+                  multiple = TRUE,
+                  selected = c("Ext_debt", "Gen_gov", "Cent_Bank", "ODCs", "Other_sectors"))
+
+selectInput(inputId = "periodSelect",
+                  label = "Period:",
+                  choices = sort(unique(external$Period)),
+                  multiple = TRUE,
+                  selected = c("2020Q1", "2020Q2", "2020Q3", "2019Q4", "2019Q3", "2019Q2", "2019Q1", "2018Q4", "2018Q3", "2018Q2", "2018Q1"))
+
+sliderInput(inputId = "dash1Threshold", 
+                  label = "Indicator 1 - Warn if exceeds:",
+                  min = 0, max = 200000, value = 180000, step = 1000)
+
+sliderInput(inputId = "dash2Threshold", 
+                  label = "Indicator 2 - Warn if exceeds:",
+                  min = 0, max = 200000, value = 10000, step = 1000)
+
+sliderInput(inputId = "dash3Threshold", 
+                  label = "Indicator 3 - Warn if less than:",
+                  min = 0, max = 200000, value = 50000, step = 1000)
+
+sliderInput(inputId = "dash4Threshold", 
+                  label = "Indicator 4 - Warn if less than:",
+                  min = 0, max = 200000, value = 10000, step = 1000)
+
+extInput <- reactive({ 
+      filter(external, Period %in% input$periodSelect)
+  })
+
+extMeltInput <- reactive({
+  meltExt <- external %>% melt(id = "Period")
+  filter(meltExt, Period %in% input$periodSelect & variable %in% input$indicatorSelect & !variable %in% input$indicatorSelect[1])
+})
+
+lineInput <- reactive({
+  meltLineExt <- external %>% melt(id = "Period")
+  filter(meltLineExt, Period %in% input$periodSelect & variable %in% input$indicatorSelect[1])
+})
+```
+
+Dashboard
+=======================================================================
+
+Row
+-----------------------------------------------------------------------
+
+### Indicator 1
+
+```{r}
+dash1 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$dashSelect1)
+
+valueBox(
+   value = m$value[length(m$value)],
+   caption = input$dashSelect1,
+   color = if (m$value[length(m$value)] >= input$dash1Threshold) "warning" else "primary"
+    )
+})
+
+renderValueBox({
+    dash1()
+})
+
+```
+
+### Indicator 2
+
+```{r}
+dash2 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$dashSelect2)
+
+valueBox(
+   value = m$value[length(m$value)],
+   caption = input$dashSelect2,
+   color = if (m$value[length(m$value)] >= input$dash2Threshold) "warning" else "primary"
+    )
+})
+
+renderValueBox({
+    dash2()
+})
+```
+
+### Indicator 3
+
+```{r}
+dash3 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$dashSelect3)
+
+valueBox(
+   value = m$value[length(m$value)],
+   caption = input$dashSelect3,
+   color = if (m$value[length(m$value)] >= input$dash3Threshold) "primary" else "warning"
+    )
+})
+
+renderValueBox({
+    dash3()
+})
+```
+
+### Indicator 4
+
+```{r}
+dash4 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$dashSelect4)
+
+valueBox(
+   value = m$value[length(m$value)],
+   caption = input$dashSelect4,
+   color = if (m$value[length(m$value)] >= input$dash4Threshold) "primary" else "warning"
+    )
+})
+
+renderValueBox({
+    dash4()
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Ratio Indicator 1
+
+```{r}
+renderUI({
+    HTML(paste(input$ratioSelect1))
+  })
+
+ratio1 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$ratioSelect1)
+  
+gauge(
+    value = m$value[length(m$value)],
+    min = 0,
+    max = 100,
+    symbol = '%',
+    gaugeSectors(
+    success = c(0, 50), warning = c(50, 80), danger = c(80, 100)
+))
+})
+
+renderGauge({
+   ratio1()
+})
+```
+
+### Ratio Indicator 2
+
+```{r}
+renderUI({
+    HTML(paste(input$ratioSelect2))
+  })
+ratio2 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$ratioSelect2)
+  
+gauge(
+    value = m$value[length(m$value)],
+    min = 0,
+    max = 100,
+    symbol = '%',
+    gaugeSectors(
+    success = c(0, 50), warning = c(50, 80), danger = c(80, 100)
+))
+})
+
+renderGauge({
+   ratio2()
+})
+```
+
+### Ratio Indicator 3
+
+```{r}
+renderUI({
+    HTML(paste(input$ratioSelect3))
+  })
+
+ratio3 <- reactive({
+  t <- external %>% melt(id = "Period")
+  m <- filter(t, Period %in% input$periodSelect & variable %in% input$ratioSelect3)
+  
+gauge(
+    value = m$value[length(m$value)],
+    min = 0,
+    max = 100,
+    symbol = '%',
+    gaugeSectors(
+    success = c(0, 50), warning = c(50, 80), danger = c(80, 100)
+))
+})
+
+renderGauge({
+   ratio3()
+})
+```
+
+Trends
+=======================================================================
+
+### Your First Selected Indicator
+
+```{r}
+
+renderPlotly({
+  ggplotly(
+    ggplot(data = extInput(), aes_string(x = "Period", y = input$indicatorSelect[1], group = 1)) + geom_line()
+  )
+  })
+
+```
+
+### Your Second Selected Indicator
+
+```{r}
+
+renderPlotly({
+  ggplotly(
+    ggplot(data = extInput(), aes_string(x = "Period", y = input$indicatorSelect[2], group = 1)) + geom_line()
+  )
+  })
+
+```
+
+### Your Third Selected Indicator
+
+```{r}
+
+renderPlotly({
+  ggplotly(
+    ggplot(data = extInput(), aes_string(x = "Period", y = input$indicatorSelect[3], group = 1)) + geom_line()
+  )
+  })
+
+```
+
+
+Composition
+=======================================================================
+
+```{r}
+renderPlotly({
+  ggplotly(
+    ggplot(data = extMeltInput(), aes(x = Period, y = value, fill = variable)) +
+        geom_bar(position = "fill", stat = "identity", color="white") +
+        scale_y_continuous(labels = percent)+
+        theme(axis.text.x = element_text(angle = 90))
+)
+})
+
+```
+
+<!-- Pie Chart  -->
+<!-- ======================================================================= -->
+
+```{r}
+
+ # data <- reactive({
+ #   extMeltInput() %>%
+ #     group_by(Period) %>%
+ #     mutate(prop = paste0(round(value/sum(value)*100,1)))
+ # })
+
+## This code doesn't show pies in full circle because pie chart is underdeveloped in ggplot/ggplotly but I keep the code just in case there is a proper ggplot/ggplotly code in the future.
+
+ # renderPlot({
+ #     ggplot(data = data(), aes(x = "", y = prop, fill = variable)) +
+ #         geom_col(position = "fill") +
+ #         geom_bar(stat = "identity", width=2, color="white") +
+ #         geom_text(aes(label = paste0(prop, "%")), position = position_stack(vjust = 0.5)) +
+ #         coord_polar(theta = "y") +
+ #         #facet_wrap(~ Period) +
+ #          theme(axis.text = element_blank(),
+ #            axis.ticks = element_blank(),
+ #            panel.grid  = element_blank()) +
+ #         theme_void()
+ # })
+
+```
+
+Trends/Composition
+=======================================================================
+
+```{r}
+# Reactive melted data to a long format ----------------------------------------------
+renderPlotly({
+  ggplotly(
+    ggplot(data = extMeltInput(), aes(x = Period, y = value, fill = variable)) +
+        geom_bar(stat = "identity", color="white") +
+        geom_line(data = lineInput(), aes(x = Period, y = value, group = 1)) +
+        theme(axis.text.x = element_text(angle = 90))
+  )
+})
+```
+
+Data Table
+=======================================================================
+
+Column {.tabset}
+-------------------------------------
+
+### Thailand External Debt
+
+```{r}
+
+downloadHandler(
+    filename = function() {
+      paste("data-", Sys.Date(), ".csv", sep="")
+    },
+    content = function(file) {
+      write.csv(extInput(), file)
+    }
+  )
+
+downloadButton("Download data table as csv")
+
+DT::renderDataTable({
+    subset(extInput(), select = c("Period",input$indicatorSelect))
+  })
+  
+```
+
